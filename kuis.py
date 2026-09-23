@@ -54,7 +54,7 @@ if "answered" not in st.session_state:
 # Unggah Foto Modul
 uploaded_file = st.file_uploader("📸 Upload foto modul/buku pelajaran di sini:", type=["jpg", "jpeg", "png"])
 
-# Fitur Catatan / Instruksi Tambahan
+# Fitur Catatan / Instruksi Tambahan Pilihan Pengguna
 user_instruction = st.text_input(
     "✏️ Instruksi Tambahan (Opsional):", 
     placeholder="Contoh: Fokus latihan soal sila pertama sampai kelima"
@@ -72,7 +72,7 @@ if uploaded_file is not None:
                 try:
                     client = genai.Client(api_key=api_key)
 
-                    # Menambahkan instruksi tambahan pengguna ke dalam prompt jika diisi
+                    # Menambahkan instruksi tambahan pengguna jika diisi
                     catatan_tambahan = ""
                     if user_instruction.strip():
                         catatan_tambahan = f"\nINSTRUKSI KHUSUS PENGGUNA: {user_instruction.strip()}"
@@ -99,96 +99,9 @@ if uploaded_file is not None:
                     ]
                     """
 
-response = client.models.generate_content(
+                    response = client.models.generate_content(
                         model="gemini-3.6-flash",
                         contents=[image, prompt]
                     )
 
-                    clean_text = response.text.strip().replace("```json", "").replace("```", "")
-                    soal_list = json.loads(clean_text)
-
-                    clean_text = response.text.strip().replace("```json", "").replace("```", "")
-                    soal_list = json.loads(clean_text)
-                    
-                    # Reset game state
-                    st.session_state.soal_ai = soal_list
-                    st.session_state.current_q = 0
-                    st.session_state.score = 0
-                    st.session_state.answered = False
-                    st.success("Hore! Soal kuis baru siap dimainkan! 🎉")
-
-                except Exception as e:
-                    st.error(f"Gagal membuat soal: {e}")
-
-# ==================== TAMPILAN GAME PER NOMOR ====================
-if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
-    soal_data = st.session_state.soal_ai
-    idx = st.session_state.current_q
-    total = len(soal_data)
-
-    st.write("---")
-    
-    # Jika masih ada soal yang harus dikerjakan
-    if idx < total:
-        progress = (idx + 1) / total
-        st.progress(progress)
-        st.caption(f"🌟 Soal No. {idx + 1} dari {total}")
-
-        item = soal_data[idx]
-
-        st.markdown(f"""
-        <div class="question-card">
-            <h3>{item['soal']}</h3>
-        </div>
-        """, unsafe_allow_html=True)
-
-        user_choice = st.radio("Pilih jawabanmu:", item["pilihan"], key=f"q_radio_{idx}")
-
-        if not st.session_state.answered:
-            if st.button("Jawab Sekarang! 🎯"):
-                st.session_state.answered = True
-                if user_choice == item["jawaban_benar"]:
-                    st.session_state.score += 1
-                    st.success("🎉 HEBAT! Jawabanmu BENAR SEKALI! 🌟")
-                    st.balloons()
-                else:
-                    st.error(f"💡 Kurang tepat! Jawaban yang benar adalah: **{item['jawaban_benar']}**")
-                st.rerun()
-        else:
-            if user_choice == item["jawaban_benar"]:
-                st.success("🎉 Jawabanmu Benar!")
-            else:
-                st.error(f"💡 Jawaban yang benar: **{item['jawaban_benar']}**")
-
-            if st.button("Soal Selanjutnya ➡️"):
-                st.session_state.current_q += 1
-                st.session_state.answered = False
-                st.rerun()
-
-    # ==================== HALAMAN AKHIR / HASIL SKOR ====================
-    else:
-        st.balloons()
-        st.snow()
-        
-        nilai_akhir = int((st.session_state.score / total) * 100)
-        
-        st.markdown(f"""
-        <div style="text-align: center; background-color: #ffffff; padding: 30px; border-radius: 20px; box-shadow: 0px 4px 15px rgba(0,0,0,0.1);">
-            <h1>🏆 PETUALANGAN SELESAI! 🏆</h1>
-            <h2>Total Skor Kamu: <span style="color: #ff6b6b;">{nilai_akhir} / 100</span></h2>
-            <p style="font-size: 20px;">Kamu berhasil menjawab <b>{st.session_state.score}</b> dari <b>{total}</b> soal dengan benar!</p>
-        </div>
-        """, unsafe_allow_html=True)
-
-        if nilai_akhir == 100:
-            st.success("🥇 LUAR BIASA! Kamu dapat Bintang Emas 🌟🌟🌟🌟🌟!")
-        elif nilai_akhir >= 70:
-            st.info("🥈 BAGUS SEKALI! Kamu anak yang pintar dan rajin! 👏")
-        else:
-            st.warning("🥉 TETAP SEMANGAT! Yuk latihan lagi supaya makin jago! 💪")
-
-        if st.button("🔄 Main Lagi dari Awal"):
-            st.session_state.current_q = 0
-            st.session_state.score = 0
-            st.session_state.answered = False
-            st.rerun()
+                    clean_text = response.text.strip().replace("
