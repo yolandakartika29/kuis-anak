@@ -2,6 +2,8 @@ import streamlit as st
 from google import genai
 from PIL import Image
 import json
+import tempfile
+import os
 
 st.set_page_config(page_title="Kuis Petualangan Anak", page_icon="🎈", layout="centered")
 
@@ -51,8 +53,25 @@ if "score" not in st.session_state:
 if "answered" not in st.session_state:
     st.session_state.answered = False
 
-# Unggah Foto Modul
-uploaded_file = st.file_uploader("📸 Upload foto modul/buku pelajaran di sini:", type=["jpg", "jpeg", "png"])
+# Pilih Tipe Sumber Materi
+input_option = st.radio(
+    "📚 Pilih sumber materi belajar:",
+    ["📸 Foto Gambar Modul", "📄 File PDF Modul", "🎥 Video / Audio Pembelajaran"],
+    horizontal=True
+)
+
+uploaded_file = None
+file_type = None
+
+if input_option == "📸 Foto Gambar Modul":
+    uploaded_file = st.file_uploader("Unggah foto modul/buku pelajaran:", type=["jpg", "jpeg", "png"])
+    file_type = "image"
+elif input_option == "📄 File PDF Modul":
+    uploaded_file = st.file_uploader("Unggah dokumen PDF modul:", type=["pdf"])
+    file_type = "pdf"
+elif input_option == "🎥 Video / Audio Pembelajaran":
+    uploaded_file = st.file_uploader("Unggah file video atau audio pembelajaran:", type=["mp4", "mov", "avi", "m4v", "mp3", "wav"])
+    file_type = "media"
 
 # Fitur Catatan / Instruksi Tambahan Pilihan Pengguna
 user_instruction = st.text_input(
@@ -61,14 +80,23 @@ user_instruction = st.text_input(
 )
 
 if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-    st.image(image, caption="Foto Modul Belajar", use_container_width=True)
+    # Tampilkan pratinjau sesuai tipe file
+    if file_type == "image":
+        image = Image.open(uploaded_file)
+        st.image(image, caption="Foto Modul Belajar", use_container_width=True)
+    elif file_type == "pdf":
+        st.info(f"📄 Berkas PDF terunggah: **{uploaded_file.name}**")
+    elif file_type == "media":
+        if uploaded_file.name.lower().endswith(('.mp4', '.mov', '.avi', '.m4v')):
+            st.video(uploaded_file)
+        else:
+            st.audio(uploaded_file)
 
     if st.button("✨ Buat Petualangan Kuis Baru!"):
         if not api_key:
             st.error("Masukkan Gemini API Key di menu samping terlebih dahulu!")
         else:
-            with st.spinner("AI sedang menyiapkan petualangan soal yang seru... ⏳"):
+            with st.spinner("AI sedang memproses materi dan menyiapkan petualangan soal... ⏳"):
                 try:
                     client = genai.Client(api_key=api_key)
 
@@ -78,7 +106,7 @@ if uploaded_file is not None:
 
                     prompt = f"""
                     Kamu adalah pembuat game edukasi anak SD kelas 1 yang sangat ceria dan kreatif.
-                    Analisis foto modul belajar ini dan buatkan 10 soal pilihan ganda interaktif.
+                    Analisis materi pembelajaran ini dan buatkan 10 soal pilihan ganda interaktif.
                     {catatan_tambahan}
 
                     Ketentuan Khusus:
@@ -98,10 +126,29 @@ if uploaded_file is not None:
                     ]
                     """
 
+                    # Penanganan Konten berdasarkan Tipe File
+                    if file_type == "image":
+                        image_input = Image.open(uploaded_file)
+                        contents_payload = [image_input, prompt]
+                    else:
+                        # Unggah file PDF/Video/Audio ke Gemini File API
+                        suffix = os.path.splitext(uploaded_file.name)[1]
+                        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
+                            tmp_file.write(uploaded_file.getvalue())
+                            tmp_path = tmp_file.name
+
+                        st.write("🔄 Mengunggah & menganalisis berkas...")
+                        uploaded_media = client.files.upload(file=tmp_path)
+                        contents_payload = [uploaded_media, prompt]
+
                     response = client.models.generate_content(
                         model="gemini-3.6-flash",
-                        contents=[image, prompt]
+                        contents=contents_payload
                     )
+
+                    # Hapus file sementara jika ada
+                    if 'tmp_path' in locals() and os.path.exists(tmp_path):
+                        os.remove(tmp_path)
 
                     # Pembersihan output yang aman dari syntax error
                     clean_text = response.text.strip()
