@@ -4,6 +4,7 @@ from PIL import Image
 import json
 import tempfile
 import os
+import time
 
 st.set_page_config(page_title="Kuis Petualangan Anak", page_icon="🎈", layout="centered")
 
@@ -137,14 +138,36 @@ if uploaded_file is not None:
                             tmp_file.write(uploaded_file.getvalue())
                             tmp_path = tmp_file.name
 
-                        st.write("🔄 Mengunggah & menganalisis berkas...")
+                        st.write("🔄 Mengunggah berkas ke server AI...")
                         uploaded_media = client.files.upload(file=tmp_path)
+                        
+                        # Menunggu hingga proses pemrosesan file di server Google selesai
+                        while uploaded_media.state.name == "PROCESSING":
+                            time.sleep(2)
+                            uploaded_media = client.files.get(name=uploaded_media.name)
+
                         contents_payload = [uploaded_media, prompt]
 
-                    response = client.models.generate_content(
-                        model="gemini-3.6-flash",
-                        contents=contents_payload
-                    )
+                    # Percobaan pemanggilan AI dengan model cadangan otomatis jika server sibuk (503)
+                    models_to_try = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-3.6-flash"]
+                    response = None
+                    last_exception = None
+
+                    for model_name in models_to_try:
+                        try:
+                            response = client.models.generate_content(
+                                model=model_name,
+                                contents=contents_payload
+                            )
+                            if response and response.text:
+                                break
+                        except Exception as err:
+                            last_exception = err
+                            time.sleep(1)
+                            continue
+
+                    if response is None or not response.text:
+                        raise last_exception if last_exception else Exception("Gagal mendapat respon dari model AI.")
 
                     # Hapus file sementara jika ada
                     if 'tmp_path' in locals() and os.path.exists(tmp_path):
@@ -165,7 +188,7 @@ if uploaded_file is not None:
                     st.success("Hore! Soal kuis baru siap dimainkan! 🎉")
 
                 except Exception as e:
-                    st.error(f"Gagal membuat soal: {e}")
+                    st.error(f"Gagal membuat soal: {e}. Silakan coba klik tombol sekali lagi!")
 
 # ==================== TAMPILAN GAME PER NOMOR ====================
 if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
