@@ -80,10 +80,18 @@ if uploaded_file is not None:
                     ]
                     """
 
-                    response = client.models.generate_content(
-                        model="gemini-3.6-flash",
-                        contents=[image, prompt]
-                    )
+                    try:
+                        # Coba model utama terlebih dahulu
+                        response = client.models.generate_content(
+                            model="gemini-3.6-flash",
+                            contents=[image, prompt]
+                        )
+                    except Exception:
+                        # Jika server utama sibuk (Error 503), otomatis alihkan ke model cadangan
+                        response = client.models.generate_content(
+                            model="gemini-2.5-flash",
+                            contents=[image, prompt]
+                        )
 
                     clean_text = response.text.strip().replace("```json", "").replace("```", "")
                     soal_list = json.loads(clean_text)
