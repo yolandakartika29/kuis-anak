@@ -99,17 +99,13 @@ if uploaded_file is not None:
                     ]
                     """
 
-                    # Logika Try-Except / Fallback jika server utama sibuk
-                    try:
-                        response = client.models.generate_content(
-                            model="gemini-3.6-flash",
-                            contents=[image, prompt]
-                        )
-                    except Exception:
-                        response = client.models.generate_content(
-                            model="gemini-2.5-flash",
-                            contents=[image, prompt]
-                        )
+response = client.models.generate_content(
+                        model="gemini-3.6-flash",
+                        contents=[image, prompt]
+                    )
+
+                    clean_text = response.text.strip().replace("```json", "").replace("```", "")
+                    soal_list = json.loads(clean_text)
 
                     clean_text = response.text.strip().replace("```json", "").replace("```", "")
                     soal_list = json.loads(clean_text)
