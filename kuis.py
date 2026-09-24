@@ -161,31 +161,11 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Urutan model utama yang terverifikasi aktif pada API Gemini
-                    models_to_try = [
-                        "gemini-2.5-flash",
-                        "gemini-2.0-flash",
-                        "gemini-1.5-flash-latest",
-                        "gemini-1.5-pro"
-                    ]
-                    
-                    response = None
-                    last_exception = None
-
-                    for model_name in models_to_try:
-                        try:
-                            response = client.models.generate_content(
-                                model=model_name,
-                                contents=contents_payload
-                            )
-                            if response and response.text:
-                                break
-                        except Exception as err:
-                            last_exception = err
-                            continue
-
-                    if response is None or not response.text:
-                        raise last_exception if last_exception else Exception("Gagal mendapat respon dari model AI.")
+                    # Menggunakan model resmi terbaru dari Google Gemini SDK
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=contents_payload
+                    )
 
                     if 'tmp_path' in locals() and os.path.exists(tmp_path):
                         os.remove(tmp_path)
