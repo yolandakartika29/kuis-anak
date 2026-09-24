@@ -1,5 +1,5 @@
 import streamlit as st
-import google.generativeai as genai
+from google import genai
 from PIL import Image
 import json
 import tempfile
@@ -96,8 +96,7 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    # Konfigurasi API Key
-                    genai.configure(api_key=api_key.strip())
+                    client = genai.Client(api_key=api_key.strip())
 
                     catatan_tambahan = ""
                     if user_instruction.strip():
@@ -149,17 +148,17 @@ if uploaded_file is not None:
                             tmp_path = tmp_file.name
 
                         st.write("🔄 Mengunggah berkas ke server AI...")
-                        uploaded_media = genai.upload_file(path=tmp_path)
+                        uploaded_media = client.files.upload(file=tmp_path)
                         
                         while uploaded_media.state.name == "PROCESSING":
                             time.sleep(2)
-                            uploaded_media = genai.get_file(name=uploaded_media.name)
+                            uploaded_media = client.files.get(name=uploaded_media.name)
 
                         contents_payload = [uploaded_media, prompt]
 
                     candidate_models = [
+                        "gemini-2.0-flash",
                         "gemini-1.5-flash",
-                        "gemini-1.5-pro",
                         "gemini-2.0-flash-exp"
                     ]
 
@@ -168,8 +167,10 @@ if uploaded_file is not None:
 
                     for mod in candidate_models:
                         try:
-                            model_instance = genai.GenerativeModel(mod)
-                            response = model_instance.generate_content(contents_payload)
+                            response = client.models.generate_content(
+                                model=mod,
+                                contents=contents_payload
+                            )
                             if response and response.text:
                                 break
                         except Exception as e_mod:
