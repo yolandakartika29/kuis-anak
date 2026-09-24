@@ -119,18 +119,21 @@ if uploaded_file is not None:
                     Ketentuan Utama & Kurikulum Merdeka:
                     1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD (Pancasila, Bahasa Indonesia, Matematika, IPAS, atau Seni).
                     2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
-                    3. Setiap soal HARUS menyertakan "prompt_gambar_en" berupa deskripsi visual singkat dalam Bahasa Inggris yang jelas untuk dijadikan masukan pembuatan gambar AI.
+                    3. ATURAN PENULISAN PROMPT GAMBAR (`prompt_gambar_en`):
+                       - Harus berupa deskripsi objek konkret, spesifik, dan SANGAT SESUAI dengan konteks soal.
+                       - Jangan menggunakan abstrak atau simbol seperti "+", "=" langsung. Gunakan kata lengkap seperti "plus symbol sign", "equals symbol sign", "three red apples", "green tree leaf".
+                       - Contoh Baik: "A big colorful equals sign symbol '=' on a clean background" atau "A cartoon illustration of three red apples next to two green apples".
                     4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
                     5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
                     Output HARUS berupa JSON murni berbentuk Array Object tanpa format markdown:
                     [
                       {{
-                        "soal": "Perhatikan gambar berikut! Simbol manakah yang digunakan untuk penjumlahan?",
-                        "prompt_gambar_en": "A cute 3D cartoon illustration of two yellow flashcards, first card with a large plus sign and second card with an equals sign",
+                        "soal": "Perhatikan gambar berikut! Simbol apakah yang kita pakai untuk menunjukkan hasil akhir dari sebuah penjumlahan?",
+                        "prompt_gambar_en": "a bright yellow equals symbol sign, 3d cute style, centered",
                         "pilihan": ["Pilihan A (+)", "Pilihan B (-)", "Pilihan C (=)", "Pilihan D (x)"],
-                        "jawaban_benar": "Pilihan A (+)",
-                        "pembahasan": "Simbol tambah (+) digunakan untuk menjumlahkan kelompok benda!"
+                        "jawaban_benar": "Pilihan C (=)",
+                        "pembahasan": "Simbol sama dengan (=) digunakan untuk menunjukkan hasil akhir dari penjumlahan!"
                       }}
                     ]
                     """
@@ -153,7 +156,6 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Urutan model untuk mencoba jika satu model habis kuotanya
                     candidate_models = [
                         "gemini-2.0-flash-exp",
                         "gemini-2.0-flash",
@@ -177,7 +179,7 @@ if uploaded_file is not None:
                             continue
 
                     if response is None or not response.text:
-                        raise last_error if last_error else Exception("Kuota harian seluruh model habis.")
+                        raise last_error if last_error else Exception("Koneksi model gagal.")
 
                     if 'tmp_path' in locals() and os.path.exists(tmp_path):
                         os.remove(tmp_path)
@@ -195,7 +197,7 @@ if uploaded_file is not None:
                     st.success("Hore! Soal kuis Kurikulum Merdeka siap dimainkan! 🎉")
 
                 except Exception as e:
-                    st.error(f"Gagal membuat soal: {e}. Jika kuota gratis akun habis, buat API Key baru di Google AI Studio!")
+                    st.error(f"Gagal membuat soal: {e}")
 
 if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
     soal_data = st.session_state.soal_ai
@@ -212,7 +214,9 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         item = soal_data[idx]
 
         if "prompt_gambar_en" in item and item["prompt_gambar_en"]:
-            prompt_encoded = urllib.parse.quote(f"{item['prompt_gambar_en']}, 3d cartoon style, vibrant colors, kids educational illustration, high resolution")
+            # Menambahkan instruksi tambahan pada URL gambar agar gambar lebih tepat dan berkualitas
+            clean_prompt = item['prompt_gambar_en'].replace("+", "plus").replace("=", "equals")
+            prompt_encoded = urllib.parse.quote(f"educational illustration of {clean_prompt}, 3d cartoon style, clear isolated subject, vivid colors")
             image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=600&height=400&nologo=true"
             
             st.image(image_url, caption="🖼️ Perhatikan Gambar Ilustrasi di Atas!", use_container_width=True)
