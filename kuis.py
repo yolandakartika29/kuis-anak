@@ -1,9 +1,6 @@
 import streamlit as st
+import google.generativeai as genai
 import json
-import requests
-import base64
-import io
-import urllib.parse
 from PIL import Image
 from pypdf import PdfReader
 
@@ -88,6 +85,8 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
+                    genai.configure(api_key=api_key.strip())
+
                     catatan_tambahan = ""
                     if user_instruction.strip():
                         catatan_tambahan = f"\nINSTRUKSI KHUSUS PENGGUNA: {user_instruction.strip()}"
@@ -101,47 +100,32 @@ if uploaded_file is not None:
                         """
 
                     prompt_base = f"""
-                    Kamu adalah pakar pengembang soal edukasi anak SD berbasis KURIKULUM MERDEKA Indonesia yang sangat ceria, inspiratif, dan interaktif.
+                    Kamu adalah pakar pengembang soal edukasi anak SD berbasis KURIKULUM MERDEKA Indonesia yang ceria dan ramah.
                     Analisis materi/sumber pembelajaran ini dan buatkan 10 soal pilihan ganda interaktif.
                     {prompt_barcode}
                     {catatan_tambahan}
 
-                    Ketentuan Utama & Kurikulum Merdeka:
-                    1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD.
-                    2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
-                    3. ATURAN PENULISAN PROMPT GAMBAR (`prompt_gambar_en`):
-                       - Harus berupa deskripsi objek konkret, spesifik, dan SANGAT SESUAI dengan konteks soal.
-                       - Jangan menggunakan simbol seperti "+", "=" langsung. Gunakan kata lengkap seperti "plus symbol sign", "equals symbol sign", "three red apples".
-                    4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
-                    5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
+                    Ketentuan Utama:
+                    1. Adaptasi Kurikulum Merdeka untuk anak SD.
+                    2. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami.
+                    3. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
                     Output HARUS berupa JSON murni berbentuk Array Object tanpa format markdown:
                     [
                       {{
-                        "soal": "Perhatikan soal penjumlahan berikut! Berapakah hasil dari 83 + 6?",
-                        "prompt_gambar_en": "addition math problem 83 plus 6, colorful cartoon style for elementary school",
-                        "pilihan": ["89", "88", "90", "87"],
-                        "jawaban_benar": "89",
-                        "pembahasan": "83 + 6 = 89!"
+                        "soal": "Pertanyaan kuis...",
+                        "pilihan": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
+                        "jawaban_benar": "Pilihan A",
+                        "pembahasan": "Penjelasan singkat jawaban..."
                       }}
                     ]
                     """
 
-                    contents_parts = []
+                    contents_payload = []
 
                     if file_type in ["image", "barcode"]:
                         img = Image.open(uploaded_file)
-                        buffered = io.BytesIO()
-                        img.save(buffered, format="JPEG")
-                        img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
-                        
-                        contents_parts.append({
-                            "inline_data": {
-                                "mime_type": "image/jpeg",
-                                "data": img_b64
-                            }
-                        })
-                        contents_parts.append({"text": prompt_base})
+                        contents_payload = [img, prompt_base]
 
                     elif file_type == "pdf":
                         pdf_reader = PdfReader(uploaded_file)
@@ -152,25 +136,24 @@ if uploaded_file is not None:
                                 pdf_text += text + "\n"
                         
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
-                        contents_parts.append({"text": full_prompt})
+                        contents_payload = [full_prompt]
 
-                    # Panggilan API Direct REST (Menghindari kendala versi SDK)
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key.strip()}"
-                    headers = {'Content-Type': 'application/json'}
-                    payload = {
-                        "contents": [{
-                            "parts": contents_parts
-                        }]
-                    }
+                    # Menguji daftar nama model resmi yang aktif
+                    response = None
+                    last_err = ""
+                    for model_name in ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro-vision', 'gemini-pro']:
+                        try:
+                            model = genai.GenerativeModel(model_name)
+                            response = model.generate_content(contents_payload)
+                            if response and response.text:
+                                break
+                        except Exception as e:
+                            last_err = str(e)
 
-                    res = requests.post(url, headers=headers, json=payload)
-                    res_json = res.json()
+                    if not response or not response.text:
+                        raise Exception(f"Gagal memproses dengan model Gemini. Detail: {last_err}")
 
-                    if res.status_code != 200:
-                        raise Exception(f"API Error: {res_json.get('error', {}).get('message', res.text)}")
-
-                    raw_text = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
-                    
+                    raw_text = response.text.strip()
                     clean_text = raw_text
                     if "[" in clean_text and "]" in clean_text:
                         clean_text = clean_text[clean_text.find("["):clean_text.rfind("]")+1]
@@ -199,13 +182,6 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         st.caption(f"🌟 Soal No. {idx + 1} dari {total}")
 
         item = soal_data[idx]
-
-        if "prompt_gambar_en" in item and item["prompt_gambar_en"]:
-            clean_prompt = item['prompt_gambar_en'].replace("+", "plus").replace("=", "equals")
-            prompt_encoded = urllib.parse.quote(f"educational illustration of {clean_prompt}, 3d cartoon style, clear isolated subject, vivid colors")
-            image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=600&height=400&nologo=true"
-            
-            st.image(image_url, caption="🖼️ Perhatikan Gambar Ilustrasi di Atas!", use_container_width=True)
 
         st.markdown(f"""
         <div class="question-card">
@@ -241,7 +217,6 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
 
     else:
         st.balloons()
-        
         nilai_akhir = int((st.session_state.score / total) * 100)
         
         st.markdown(f"""
