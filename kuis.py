@@ -6,7 +6,7 @@ import tempfile
 import os
 import time
 
-st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
+st.set_page_config(page_title="Ayo Zee selesaikan tugasnya, kamu anak pintar", page_icon="🎈", layout="centered")
 
 # Custom Styling untuk tampilan game interaktif anak
 st.markdown("""
@@ -274,7 +274,7 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         
         st.markdown(f"""
         <div style="text-align: center; background-color: #ffffff; padding: 30px; border-radius: 20px; box-shadow: 0px 4px 15px rgba(0,0,0,0.1);">
-            <h1>🏆 PETUALANGAN SELESAI! 🏆</h1>
+            <h1>🏆 PETUALANGAN SELESAI! KAMU PINTAR SEKALI ZEE! 🏆</h1>
             <h2>Total Skor Kamu: <span style="color: #ff6b6b;">{nilai_akhir} / 100</span></h2>
             <p style="font-size: 20px;">Kamu berhasil menjawab <b>{st.session_state.score}</b> dari <b>{total}</b> soal dengan benar!</p>
         </div>
