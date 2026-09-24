@@ -33,7 +33,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎈 Petualangan Kuis Kurikulum Merdeka 🎈")
+st.title("🎈 Ayo Zee selesaikan soalnya, kamu kan pintar! 🎈")
 
 # Ambil API Key otomatis dari Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY", "")
