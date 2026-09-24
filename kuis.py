@@ -5,8 +5,9 @@ import json
 import tempfile
 import os
 import time
+import urllib.parse
 
-st.set_page_config(page_title="Ayo Zee selesaikan soalnya, kamu kan pintar!", page_icon="🎈", layout="centered")
+st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
 
 # Custom Styling untuk tampilan game interaktif anak
 st.markdown("""
@@ -33,7 +34,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎈 Ayo Zee selesaikan soalnya, kamu kan pintar! 🎈")
+st.title("🎈 Petualangan Kuis Kurikulum Merdeka 🎈")
 
 # Ambil API Key otomatis dari Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY", "")
@@ -124,7 +125,7 @@ if uploaded_file is not None:
                     Ketentuan Utama & Kurikulum Merdeka:
                     1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD (Pancasila, Bahasa Indonesia, Matematika, IPAS, atau Seni).
                     2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
-                    3. Setiap soal HARUS menyertakan "prompt_gambar_en" berupa deskripsi visual singkat dalam Bahasa Inggris yang jelas untuk dijadikan masukan pembuatan gambar AI (Misal: "A colorful cartoon illustration of two yellow cards, the first card has a large plus sign and the second has an equals sign, vector art for kids").
+                    3. Setiap soal HARUS menyertakan "prompt_gambar_en" berupa deskripsi visual singkat dalam Bahasa Inggris yang jelas untuk dijadikan masukan pembuatan gambar AI (Misal: "A cute 3D cartoon illustration of two yellow flashcards, first card with a large plus sign and second card with an equals sign, kids educational style").
                     4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
                     5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
@@ -132,7 +133,7 @@ if uploaded_file is not None:
                     [
                       {{
                         "soal": "Perhatikan gambar berikut! Simbol manakah yang digunakan untuk penjumlahan?",
-                        "prompt_gambar_en": "Two yellow cards, one with a large plus symbol and one with an equals symbol, cute cartoon style for children",
+                        "prompt_gambar_en": "A cute 3D cartoon illustration of two yellow flashcards, first card with a large plus sign and second card with an equals sign",
                         "pilihan": ["Pilihan A (+)", "Pilihan B (-)", "Pilihan C (=)", "Pilihan D (x)"],
                         "jawaban_benar": "Pilihan A (+)",
                         "pembahasan": "Simbol tambah (+) digunakan untuk menjumlahkan kelompok benda!"
@@ -159,8 +160,8 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Multi-model fallback untuk mengantisipasi error 503
-                    models_to_try = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-3.6-flash"]
+                    # Urutan model dimulai dari model dengan kuota gratis harian paling besar
+                    models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash"]
                     response = None
                     last_exception = None
 
@@ -213,14 +214,12 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
 
         item = soal_data[idx]
 
-        # Pembuatan dan Penampilan Gambar Visual Otomatis via AI
+        # Generator Gambar AI Realistis Edukasi Anak (Pollinations AI)
         if "prompt_gambar_en" in item and item["prompt_gambar_en"]:
-            # Menggunakan Gambar Unsplash Edukasi atau Ilustrasi Berdasar Kata Kunci Soal
-            keywords = item["prompt_gambar_en"].replace(" ", ",")
-            image_url = f"https://source.unsplash.com/600x400/?{keywords}"
+            prompt_encoded = urllib.parse.quote(f"{item['prompt_gambar_en']}, 3d cartoon style, vibrant colors, kids educational illustration, high resolution")
+            image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=600&height=400&nologo=true"
             
-            # Tampilkan Gambar Ilustrasi Visual Nyata
-            st.image(image_url, caption="🖼️ Perhatikan Gambar di Atas!", use_container_width=True)
+            st.image(image_url, caption="🖼️ Perhatikan Gambar Ilustrasi di Atas!", use_container_width=True)
 
         st.markdown(f"""
         <div class="question-card">
@@ -263,7 +262,7 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         
         st.markdown(f"""
         <div style="text-align: center; background-color: #ffffff; padding: 30px; border-radius: 20px; box-shadow: 0px 4px 15px rgba(0,0,0,0.1);">
-            <h1>🏆 PETUALANGAN SELESAI! KAMU PINTAR SEKALI ZEE! 🏆</h1>
+            <h1>🏆 PETUALANGAN SELESAI! 🏆</h1>
             <h2>Total Skor Kamu: <span style="color: #ff6b6b;">{nilai_akhir} / 100</span></h2>
             <p style="font-size: 20px;">Kamu berhasil menjawab <b>{st.session_state.score}</b> dari <b>{total}</b> soal dengan benar!</p>
         </div>
