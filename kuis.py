@@ -6,9 +6,9 @@ import tempfile
 import os
 import time
 
-st.set_page_config(page_title="Kuis Petualangan Anak", page_icon="🎈", layout="centered")
+st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
 
-# Styling CSS khusus agar tampilan lebih ceria dan mirip game edukasi
+# Custom Styling untuk tampilan game interaktif anak
 st.markdown("""
     <style>
     .main { background-color: #f0f8ff; }
@@ -30,12 +30,20 @@ st.markdown("""
         box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
         margin-bottom: 15px;
     }
+    .image-box {
+        background-color: #fff9e6;
+        border: 2px dashed #f1c40f;
+        padding: 15px;
+        border-radius: 12px;
+        margin-bottom: 15px;
+        color: #2c3e50;
+    }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎈 Petualangan Kuis Pintar 🎈")
+st.title("🎈 Petualangan Kuis Kurikulum Merdeka 🎈")
 
-# Ambil API Key otomatis dari Secrets Streamlit jika ada
+# Ambil API Key otomatis dari Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
 # Sidebar Pengaturan
@@ -57,7 +65,7 @@ if "answered" not in st.session_state:
 # Pilih Tipe Sumber Materi
 input_option = st.radio(
     "📚 Pilih sumber materi belajar:",
-    ["📸 Foto Gambar Modul", "📄 File PDF Modul", "🎥 Video / Audio Pembelajaran"],
+    ["📸 Foto Gambar Modul", "📷 Scan Barcode / QR Code", "📄 File PDF Modul", "🎥 Video / Audio Pembelajaran"],
     horizontal=True
 )
 
@@ -67,6 +75,9 @@ file_type = None
 if input_option == "📸 Foto Gambar Modul":
     uploaded_file = st.file_uploader("Unggah foto modul/buku pelajaran:", type=["jpg", "jpeg", "png"])
     file_type = "image"
+elif input_option == "📷 Scan Barcode / QR Code":
+    uploaded_file = st.file_uploader("Unggah foto Barcode / QR Code dari buku:", type=["jpg", "jpeg", "png"])
+    file_type = "barcode"
 elif input_option == "📄 File PDF Modul":
     uploaded_file = st.file_uploader("Unggah dokumen PDF modul:", type=["pdf"])
     file_type = "pdf"
@@ -76,15 +87,15 @@ elif input_option == "🎥 Video / Audio Pembelajaran":
 
 # Fitur Catatan / Instruksi Tambahan Pilihan Pengguna
 user_instruction = st.text_input(
-    "✏️ Instruksi Tambahan (Opsional):", 
-    placeholder="Contoh: Fokus latihan soal sila pertama sampai kelima"
+    "✏️ Instruksi Tambahan / Topik Khusus (Opsional):", 
+    placeholder="Contoh: Fokus Pancasila Sila ke-1 sampai ke-5 atau Bab Tumbuhan IPAS"
 )
 
 if uploaded_file is not None:
     # Tampilkan pratinjau sesuai tipe file
-    if file_type == "image":
+    if file_type in ["image", "barcode"]:
         image = Image.open(uploaded_file)
-        st.image(image, caption="Foto Modul Belajar", use_container_width=True)
+        st.image(image, caption="Gambar / Barcode Materi", use_container_width=True)
     elif file_type == "pdf":
         st.info(f"📄 Berkas PDF terunggah: **{uploaded_file.name}**")
     elif file_type == "media":
@@ -97,7 +108,7 @@ if uploaded_file is not None:
         if not api_key:
             st.error("Masukkan Gemini API Key di menu samping terlebih dahulu!")
         else:
-            with st.spinner("AI sedang memproses materi dan menyiapkan petualangan soal... ⏳"):
+            with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
                     client = genai.Client(api_key=api_key)
 
@@ -105,34 +116,44 @@ if uploaded_file is not None:
                     if user_instruction.strip():
                         catatan_tambahan = f"\nINSTRUKSI KHUSUS PENGGUNA: {user_instruction.strip()}"
 
+                    prompt_barcode = ""
+                    if file_type == "barcode":
+                        prompt_barcode = """
+                        PERHATIAN: Gambar yang diunggah adalah BARCODE / QR CODE materi pelajaran.
+                        1. Lakukan ekstraksi dan pembacaan teks/link/informasi yang terkandung dalam Barcode/QR Code tersebut.
+                        2. Gunakan informasi materi di dalam barcode tersebut sebagai bahan utama pembuatan kuis.
+                        """
+
                     prompt = f"""
-                    Kamu adalah pembuat game edukasi anak SD kelas 1 yang sangat ceria dan kreatif.
-                    Analisis materi pembelajaran ini dan buatkan 10 soal pilihan ganda interaktif.
+                    Kamu adalah pakar pengembang soal edukasi anak SD berbasis KURIKULUM MERDEKA Indonesia yang sangat ceria, inspiratif, dan interaktif.
+                    Analisis materi/sumber pembelajaran yang diunggah ini dan buatkan 10 soal pilihan ganda interaktif.
+                    {prompt_barcode}
                     {catatan_tambahan}
 
-                    Ketentuan Khusus:
-                    1. Gunakan bahasa yang sangat ramah, ceria, dan singkat untuk anak usia 6-7 tahun.
-                    2. Sertakan emoji visual yang sesuai di dalam teks soal (misal: 🍎, ✏️, 🚗, 🐱, 🇮🇩) agar soal menarik dilihat.
-                    3. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
-                    4. Jika ada instruksi khusus pengguna di atas, utamakan topik atau fokus latihan yang diminta tersebut.
+                    Ketentuan Utama & Kurikulum Merdeka:
+                    1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD (Pancasila, Bahasa Indonesia, Matematika, IPAS, atau Seni).
+                    2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
+                    3. Setiap soal HARUS menyertakan "deskripsi_gambar" nyata yang spesifik dan detail untuk menggambarkan situasi visual pada soal (Misal: "Gambar Andi sedang membantu Siti yang terjatuh dari sepeda di depan kelas", atau "Gambar 3 buah apel merah di atas piring biru").
+                    4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
+                    5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
                     Output HARUS berupa JSON murni berbentuk Array Object tanpa format markdown:
                     [
                       {{
-                        "soal": "Teks soal dengan emoji menarik...",
+                        "soal": "Perhatikan situasi pada gambar! Tindakan yang dilakukan anak tersebut merupakan pengamalan Pancasila sila ke-...?",
+                        "deskripsi_gambar": "Gambar seorang anak bernama Budi sedang menuntun temannya yang terjatuh dari sepeda di halaman sekolah.",
                         "pilihan": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
-                        "jawaban_benar": "Pilihan A",
-                        "pembahasan": "Pesan semangat singkat!"
+                        "jawaban_benar": "Pilihan B",
+                        "pembahasan": "Pesan edukatif yang membangun dan ramah untuk anak!"
                       }}
                     ]
                     """
 
                     # Penanganan Konten berdasarkan Tipe File
-                    if file_type == "image":
+                    if file_type in ["image", "barcode"]:
                         image_input = Image.open(uploaded_file)
                         contents_payload = [image_input, prompt]
                     else:
-                        # Unggah file PDF/Video/Audio ke Gemini File API
                         suffix = os.path.splitext(uploaded_file.name)[1]
                         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
                             tmp_file.write(uploaded_file.getvalue())
@@ -141,14 +162,13 @@ if uploaded_file is not None:
                         st.write("🔄 Mengunggah berkas ke server AI...")
                         uploaded_media = client.files.upload(file=tmp_path)
                         
-                        # Menunggu hingga proses pemrosesan file di server Google selesai
                         while uploaded_media.state.name == "PROCESSING":
                             time.sleep(2)
                             uploaded_media = client.files.get(name=uploaded_media.name)
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Percobaan pemanggilan AI dengan model cadangan otomatis jika server sibuk (503)
+                    # Multi-model fallback untuk mengantisipasi error 503
                     models_to_try = ["gemini-1.5-flash", "gemini-2.5-flash", "gemini-3.6-flash"]
                     response = None
                     last_exception = None
@@ -169,11 +189,10 @@ if uploaded_file is not None:
                     if response is None or not response.text:
                         raise last_exception if last_exception else Exception("Gagal mendapat respon dari model AI.")
 
-                    # Hapus file sementara jika ada
+                    # Hapus file sementara
                     if 'tmp_path' in locals() and os.path.exists(tmp_path):
                         os.remove(tmp_path)
 
-                    # Pembersihan output yang aman dari syntax error
                     clean_text = response.text.strip()
                     if "[" in clean_text and "]" in clean_text:
                         clean_text = clean_text[clean_text.find("["):clean_text.rfind("]")+1]
@@ -185,7 +204,7 @@ if uploaded_file is not None:
                     st.session_state.current_q = 0
                     st.session_state.score = 0
                     st.session_state.answered = False
-                    st.success("Hore! Soal kuis baru siap dimainkan! 🎉")
+                    st.success("Hore! Soal kuis Kurikulum Merdeka siap dimainkan! 🎉")
 
                 except Exception as e:
                     st.error(f"Gagal membuat soal: {e}. Silakan coba klik tombol sekali lagi!")
@@ -198,13 +217,21 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
 
     st.write("---")
     
-    # Jika masih ada soal yang harus dikerjakan
     if idx < total:
         progress = (idx + 1) / total
         st.progress(progress)
         st.caption(f"🌟 Soal No. {idx + 1} dari {total}")
 
         item = soal_data[idx]
+
+        # Tampilan Deskripsi Visual Gambar Situasi
+        if "deskripsi_gambar" in item and item["deskripsi_gambar"]:
+            st.markdown(f"""
+            <div class="image-box">
+                <b>🖼️ PERHATIKAN GAMBAR / ILUSTRASI SEPERTI BERIKUT:</b><br>
+                <i>"{item['deskripsi_gambar']}"</i>
+            </div>
+            """, unsafe_allow_html=True)
 
         st.markdown(f"""
         <div class="question-card">
@@ -229,13 +256,16 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
                 st.success("🎉 Jawabanmu Benar!")
             else:
                 st.error(f"💡 Jawaban yang benar: **{item['jawaban_benar']}**")
+            
+            if "pembahasan" in item and item["pembahasan"]:
+                st.info(f"💬 **Pembahasan Ringkas:** {item['pembahasan']}")
 
             if st.button("Soal Selanjutnya ➡️"):
                 st.session_state.current_q += 1
                 st.session_state.answered = False
                 st.rerun()
 
-    # ==================== HALAMAN AKHIR / HASIL SKOR ====================
+    # ==================== HASIL SKOR ====================
     else:
         st.balloons()
         st.snow()
@@ -251,7 +281,7 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         """, unsafe_allow_html=True)
 
         if nilai_akhir == 100:
-            st.success("🥇 LUAR BIASA! Kamu dapat Bintang Emas 🌟🌟🌟🌟🌟!")
+            st.success("🥇 LUAR BIASA! Kamu dapat Bintang Emas Kurikulum Merdeka 🌟🌟🌟🌟🌟!")
         elif nilai_akhir >= 70:
             st.info("🥈 BAGUS SEKALI! Kamu anak yang pintar dan rajin! 👏")
         else:
