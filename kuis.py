@@ -1,5 +1,5 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 from PIL import Image
 import json
 import tempfile
@@ -96,7 +96,8 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    client = genai.Client(api_key=api_key)
+                    # Konfigurasi API Key
+                    genai.configure(api_key=api_key.strip())
 
                     catatan_tambahan = ""
                     if user_instruction.strip():
@@ -121,7 +122,7 @@ if uploaded_file is not None:
                     2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
                     3. ATURAN PENULISAN PROMPT GAMBAR (`prompt_gambar_en`):
                        - Harus berupa deskripsi objek konkret, spesifik, dan SANGAT SESUAI dengan konteks soal.
-                       - Jangan menggunakan abstrak atau simbol seperti "+", "=" langsung. Gunakan kata lengkap seperti "plus symbol sign", "equals symbol sign", "three red apples", "green tree leaf".
+                       - Jangan menggunakan simbol seperti "+", "=" langsung. Gunakan kata lengkap seperti "plus symbol sign", "equals symbol sign", "three red apples", "green tree leaf".
                        - Contoh Baik: "A big colorful equals sign symbol '=' on a clean background" atau "A cartoon illustration of three red apples next to two green apples".
                     4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
                     5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
@@ -148,19 +149,18 @@ if uploaded_file is not None:
                             tmp_path = tmp_file.name
 
                         st.write("🔄 Mengunggah berkas ke server AI...")
-                        uploaded_media = client.files.upload(file=tmp_path)
+                        uploaded_media = genai.upload_file(path=tmp_path)
                         
                         while uploaded_media.state.name == "PROCESSING":
                             time.sleep(2)
-                            uploaded_media = client.files.get(name=uploaded_media.name)
+                            uploaded_media = genai.get_file(name=uploaded_media.name)
 
                         contents_payload = [uploaded_media, prompt]
 
                     candidate_models = [
-                        "gemini-2.0-flash-exp",
-                        "gemini-2.0-flash",
-                        "gemini-1.5-flash-8b",
-                        "gemini-3.6-flash"
+                        "gemini-1.5-flash",
+                        "gemini-1.5-pro",
+                        "gemini-2.0-flash-exp"
                     ]
 
                     response = None
@@ -168,10 +168,8 @@ if uploaded_file is not None:
 
                     for mod in candidate_models:
                         try:
-                            response = client.models.generate_content(
-                                model=mod,
-                                contents=contents_payload
-                            )
+                            model_instance = genai.GenerativeModel(mod)
+                            response = model_instance.generate_content(contents_payload)
                             if response and response.text:
                                 break
                         except Exception as e_mod:
@@ -179,7 +177,7 @@ if uploaded_file is not None:
                             continue
 
                     if response is None or not response.text:
-                        raise last_error if last_error else Exception("Koneksi model gagal.")
+                        raise last_error if last_error else Exception("Koneksi ke server AI gagal.")
 
                     if 'tmp_path' in locals() and os.path.exists(tmp_path):
                         os.remove(tmp_path)
@@ -214,7 +212,6 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         item = soal_data[idx]
 
         if "prompt_gambar_en" in item and item["prompt_gambar_en"]:
-            # Menambahkan instruksi tambahan pada URL gambar agar gambar lebih tepat dan berkualitas
             clean_prompt = item['prompt_gambar_en'].replace("+", "plus").replace("=", "equals")
             prompt_encoded = urllib.parse.quote(f"educational illustration of {clean_prompt}, 3d cartoon style, clear isolated subject, vivid colors")
             image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=600&height=400&nologo=true"
