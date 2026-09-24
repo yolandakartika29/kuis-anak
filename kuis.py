@@ -5,7 +5,7 @@ from PIL import Image
 from pypdf import PdfReader
 
 # Konfigurasi Tampilan Halaman Streamlit
-st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
+st.set_page_config(page_title="Ayo selesaikan kuisnya Zee, kamu anak pintar!", page_icon="🎈", layout="centered")
 
 # Styling CSS Sederhana
 st.markdown("""
@@ -32,7 +32,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🎈 Petualangan Kuis Kurikulum Merdeka 🎈")
+st.title("🎈 Ayo selesaikan kuisnya Zee, kamu anak pintar! 🎈")
 
 # Mengambil API Key dari Streamlit Secrets atau Sidebar Input
 api_key = st.secrets.get("GEMINI_API_KEY", "")
@@ -242,11 +242,11 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         """, unsafe_allow_html=True)
 
         if nilai_akhir == 100:
-            st.success("🥇 LUAR BIASA! Kamu dapat Bintang Emas Kurikulum Merdeka 🌟🌟🌟🌟🌟!")
+            st.success("🥇 LUAR BIASA! Kamu emang pintar sekali Zee 🌟🌟🌟🌟🌟! Karena kamu pintar kamu mendapatkan 5 ribu rupiah")
         elif nilai_akhir >= 70:
-            st.info("🥈 BAGUS SEKALI! Kamu anak yang pintar dan rajin! 👏")
+            st.info("🥈 BAGUS SEKALI! Kamu anak yang pintar dan rajin Zee! Kamu mendapatkan 2 ribu rupiah👏")
         else:
-            st.warning("🥉 TETAP SEMANGAT! Yuk latihan lagi supaya makin jago!")
+            st.warning("🥉 TETAP SEMANGAT! Yuk latihan lagi Zee supaya makin jago! Ayo latihan lagi biar dapat uang tabungan")
 
         if st.button("🔄 Main Lagi dari Awal"):
             st.session_state.current_q = 0
