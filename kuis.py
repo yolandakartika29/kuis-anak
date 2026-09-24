@@ -1,10 +1,8 @@
 import streamlit as st
-from google import genai
+import google.generativeai as genai
 from PIL import Image
 import json
-import tempfile
 import os
-import time
 import urllib.parse
 from pypdf import PdfReader
 
@@ -54,7 +52,7 @@ if "answered" not in st.session_state:
 
 input_option = st.radio(
     "📚 Pilih sumber materi belajar:",
-    ["📸 Foto Gambar Modul", "📷 Scan Barcode / QR Code", "📄 File PDF Modul", "🎥 Video / Audio Pembelajaran"],
+    ["📸 Foto Gambar Modul", "📷 Scan Barcode / QR Code", "📄 File PDF Modul"],
     horizontal=True
 )
 
@@ -70,9 +68,6 @@ elif input_option == "📷 Scan Barcode / QR Code":
 elif input_option == "📄 File PDF Modul":
     uploaded_file = st.file_uploader("Unggah dokumen PDF modul:", type=["pdf"])
     file_type = "pdf"
-elif input_option == "🎥 Video / Audio Pembelajaran":
-    uploaded_file = st.file_uploader("Unggah file video atau audio pembelajaran:", type=["mp4", "mov", "avi", "m4v", "mp3", "wav"])
-    file_type = "media"
 
 user_instruction = st.text_input(
     "✏️ Instruksi Tambahan / Topik Khusus (Opsional):", 
@@ -85,11 +80,6 @@ if uploaded_file is not None:
         st.image(image, caption="Gambar / Barcode Materi", use_container_width=True)
     elif file_type == "pdf":
         st.info(f"📄 Berkas PDF terunggah: **{uploaded_file.name}**")
-    elif file_type == "media":
-        if uploaded_file.name.lower().endswith(('.mp4', '.mov', '.avi', '.m4v')):
-            st.video(uploaded_file)
-        else:
-            st.audio(uploaded_file)
 
     if st.button("✨ Buat Petualangan Kuis Baru!"):
         if not api_key:
@@ -97,7 +87,8 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    client = genai.Client(api_key=api_key.strip())
+                    # Konfigurasi Google Generative AI
+                    genai.configure(api_key=api_key.strip())
 
                     catatan_tambahan = ""
                     if user_instruction.strip():
@@ -118,11 +109,11 @@ if uploaded_file is not None:
                     {catatan_tambahan}
 
                     Ketentuan Utama & Kurikulum Merdeka:
-                    1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD (Pancasila, Bahasa Indonesia, Matematika, IPAS, atau Seni).
+                    1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD.
                     2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
                     3. ATURAN PENULISAN PROMPT GAMBAR (`prompt_gambar_en`):
                        - Harus berupa deskripsi objek konkret, spesifik, dan SANGAT SESUAI dengan konteks soal.
-                       - Jangan menggunakan simbol seperti "+", "=" langsung. Gunakan kata lengkap seperti "plus symbol sign", "equals symbol sign", "three red apples", "green tree leaf".
+                       - Jangan menggunakan simbol seperti "+", "=" langsung. Gunakan kata lengkap seperti "plus symbol sign", "equals symbol sign", "three red apples".
                     4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
                     5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
@@ -142,7 +133,6 @@ if uploaded_file is not None:
                         image_input = Image.open(uploaded_file)
                         contents_payload = [image_input, prompt_base]
                     elif file_type == "pdf":
-                        # Ekstraksi teks dari PDF langsung di lokal tanpa lewat File API
                         pdf_reader = PdfReader(uploaded_file)
                         pdf_text = ""
                         for page in pdf_reader.pages:
@@ -152,34 +142,21 @@ if uploaded_file is not None:
                         
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
                         contents_payload = [full_prompt]
-                    else:
-                        suffix = os.path.splitext(uploaded_file.name)[1]
-                        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
-                            tmp_file.write(uploaded_file.getvalue())
-                            tmp_path = tmp_file.name
 
-                        uploaded_media = client.files.upload(file=tmp_path)
-                        while uploaded_media.state.name == "PROCESSING":
-                            time.sleep(2)
-                            uploaded_media = client.files.get(name=uploaded_media.name)
-
-                        contents_payload = [uploaded_media, prompt_base]
-
+                    # Menggunakan model Gemini terbaru dengan SDK legacy yang kompatibel dengan AQ key
                     candidate_models = [
-                        "gemini-2.0-flash",
                         "gemini-1.5-flash",
-                        "gemini-2.0-flash-exp"
+                        "gemini-1.5-pro",
+                        "gemini-1.0-pro"
                     ]
 
                     response = None
                     last_error = None
 
-                    for mod in candidate_models:
+                    for mod_name in candidate_models:
                         try:
-                            response = client.models.generate_content(
-                                model=mod,
-                                contents=contents_payload
-                            )
+                            model = genai.GenerativeModel(mod_name)
+                            response = model.generate_content(contents_payload)
                             if response and response.text:
                                 break
                         except Exception as e_mod:
@@ -188,9 +165,6 @@ if uploaded_file is not None:
 
                     if response is None or not response.text:
                         raise last_error if last_error else Exception("Koneksi ke server AI gagal.")
-
-                    if 'tmp_path' in locals() and os.path.exists(tmp_path):
-                        os.remove(tmp_path)
 
                     clean_text = response.text.strip()
                     if "[" in clean_text and "]" in clean_text:
@@ -262,7 +236,6 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
 
     else:
         st.balloons()
-        st.snow()
         
         nilai_akhir = int((st.session_state.score / total) * 100)
         
