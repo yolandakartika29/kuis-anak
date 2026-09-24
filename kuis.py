@@ -1,10 +1,8 @@
 import streamlit as st
+import google.generativeai as genai
 import json
-import base64
-import requests
 import urllib.parse
 from PIL import Image
-import io
 from pypdf import PdfReader
 
 st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
@@ -88,6 +86,8 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
+                    genai.configure(api_key=api_key.strip())
+
                     catatan_tambahan = ""
                     if user_instruction.strip():
                         catatan_tambahan = f"\nINSTRUKSI KHUSUS PENGGUNA: {user_instruction.strip()}"
@@ -127,23 +127,11 @@ if uploaded_file is not None:
                     ]
                     """
 
-                    parts = []
+                    contents_payload = []
 
                     if file_type in ["image", "barcode"]:
                         img = Image.open(uploaded_file)
-                        if img.mode != 'RGB':
-                            img = img.convert('RGB')
-                        buffered = io.BytesIO()
-                        img.save(buffered, format="JPEG")
-                        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
-                        
-                        parts.append({
-                            "inline_data": {
-                                "mime_type": "image/jpeg",
-                                "data": img_str
-                            }
-                        })
-                        parts.append({"text": prompt_base})
+                        contents_payload = [img, prompt_base]
 
                     elif file_type == "pdf":
                         pdf_reader = PdfReader(uploaded_file)
@@ -154,37 +142,27 @@ if uploaded_file is not None:
                                 pdf_text += text + "\n"
                         
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
-                        parts.append({"text": full_prompt})
+                        contents_payload = [full_prompt]
 
-                    clean_key = api_key.strip()
-                    
-                    models_to_try = [
-                        "gemini-2.0-flash",
-                        "gemini-1.5-flash-latest",
-                        "gemini-1.5-flash"
-                    ]
-
-                    res_json = None
-                    last_err = ""
-
-                    headers = {"Content-Type": "application/json"}
-                    payload = {"contents": [{"parts": parts}]}
+                    # Urutan pencarian model alternatif jika satu model tidak aktif di akun Anda
+                    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+                    response = None
+                    last_error = ""
 
                     for m_name in models_to_try:
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={clean_key}"
-                        response = requests.post(url, headers=headers, json=payload)
-                        if response.status_code == 200:
-                            res_json = response.json()
-                            break
-                        else:
-                            last_err = f"HTTP {response.status_code}: {response.text}"
+                        try:
+                            model = genai.GenerativeModel(m_name)
+                            response = model.generate_content(contents_payload)
+                            if response and response.text:
+                                break
+                        except Exception as err:
+                            last_error = str(err)
 
-                    if not res_json or "candidates" not in res_json:
-                        raise Exception(f"Gagal memproses materi: {last_err}")
+                    if not response or not response.text:
+                        raise Exception(f"Gagal memproses dengan model Gemini: {last_error}")
 
-                    raw_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
-                    
-                    clean_text = raw_text.strip()
+                    raw_text = response.text.strip()
+                    clean_text = raw_text
                     if "[" in clean_text and "]" in clean_text:
                         clean_text = clean_text[clean_text.find("["):clean_text.rfind("]")+1]
 
