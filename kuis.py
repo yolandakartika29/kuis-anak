@@ -6,6 +6,7 @@ import tempfile
 import os
 import time
 import urllib.parse
+from pypdf import PdfReader
 
 st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
 
@@ -110,9 +111,9 @@ if uploaded_file is not None:
                         2. Gunakan informasi materi di dalam barcode tersebut sebagai bahan utama pembuatan kuis.
                         """
 
-                    prompt = f"""
+                    prompt_base = f"""
                     Kamu adalah pakar pengembang soal edukasi anak SD berbasis KURIKULUM MERDEKA Indonesia yang sangat ceria, inspiratif, dan interaktif.
-                    Analisis materi/sumber pembelajaran yang diunggah ini dan buatkan 10 soal pilihan ganda interaktif.
+                    Analisis materi/sumber pembelajaran ini dan buatkan 10 soal pilihan ganda interaktif.
                     {prompt_barcode}
                     {catatan_tambahan}
 
@@ -122,7 +123,6 @@ if uploaded_file is not None:
                     3. ATURAN PENULISAN PROMPT GAMBAR (`prompt_gambar_en`):
                        - Harus berupa deskripsi objek konkret, spesifik, dan SANGAT SESUAI dengan konteks soal.
                        - Jangan menggunakan simbol seperti "+", "=" langsung. Gunakan kata lengkap seperti "plus symbol sign", "equals symbol sign", "three red apples", "green tree leaf".
-                       - Contoh Baik: "A big colorful equals sign symbol '=' on a clean background" atau "A cartoon illustration of three red apples next to two green apples".
                     4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
                     5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
@@ -140,21 +140,30 @@ if uploaded_file is not None:
 
                     if file_type in ["image", "barcode"]:
                         image_input = Image.open(uploaded_file)
-                        contents_payload = [image_input, prompt]
+                        contents_payload = [image_input, prompt_base]
+                    elif file_type == "pdf":
+                        # Ekstraksi teks dari PDF langsung di lokal tanpa lewat File API
+                        pdf_reader = PdfReader(uploaded_file)
+                        pdf_text = ""
+                        for page in pdf_reader.pages:
+                            text = page.extract_text()
+                            if text:
+                                pdf_text += text + "\n"
+                        
+                        full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
+                        contents_payload = [full_prompt]
                     else:
                         suffix = os.path.splitext(uploaded_file.name)[1]
                         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp_file:
                             tmp_file.write(uploaded_file.getvalue())
                             tmp_path = tmp_file.name
 
-                        st.write("🔄 Mengunggah berkas ke server AI...")
                         uploaded_media = client.files.upload(file=tmp_path)
-                        
                         while uploaded_media.state.name == "PROCESSING":
                             time.sleep(2)
                             uploaded_media = client.files.get(name=uploaded_media.name)
 
-                        contents_payload = [uploaded_media, prompt]
+                        contents_payload = [uploaded_media, prompt_base]
 
                     candidate_models = [
                         "gemini-2.0-flash",
