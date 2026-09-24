@@ -127,7 +127,6 @@ if uploaded_file is not None:
                     ]
                     """
 
-                    # Menyiapkan payload untuk REST API Google Gemini
                     parts = []
 
                     if file_type in ["image", "barcode"]:
@@ -159,41 +158,33 @@ if uploaded_file is not None:
 
                     clean_key = api_key.strip()
                     
-                    # Coba beberapa endpoint model
-                    models_to_try = [
-                        "gemini-1.5-flash",
-                        "gemini-2.0-flash",
-                        "gemini-1.5-pro"
-                    ]
+                    # Menggunakan endpoint v1beta resmi Gemini dengan query key murni
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={clean_key}"
+                    
+                    # KUNCI UTAMA: Hanya sertakan Content-Type, JANGAN sertakan Authorization header
+                    headers = {
+                        "Content-Type": "application/json"
+                    }
 
-                    res_json = None
-                    last_err_msg = ""
+                    payload = {
+                        "contents": [{
+                            "parts": parts
+                        }]
+                    }
 
-                    for model_name in models_to_try:
-                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={clean_key}"
-                        
-                        # Headers fleksibel untuk mendukung baik AQ key maupun AIzaSy key
-                        headers = {"Content-Type": "application/json"}
-                        if clean_key.startswith("AQ"):
-                            headers["Authorization"] = f"Bearer {clean_key}"
+                    response = requests.post(url, headers=headers, json=payload)
+                    
+                    if response.status_code != 200:
+                        # Fallback ke model gemini-1.5-pro jika flash gagal
+                        url_alt = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={clean_key}"
+                        response = requests.post(url_alt, headers=headers, json=payload)
 
-                        payload = {
-                            "contents": [{
-                                "parts": parts
-                            }]
-                        }
+                    if response.status_code != 200:
+                        raise Exception(f"HTTP {response.status_code}: {response.text}")
 
-                        response = requests.post(url, headers=headers, json=payload)
-                        if response.status_code == 200:
-                            res_json = response.json()
-                            break
-                        else:
-                            last_err_msg = f"HTTP {response.status_code}: {response.text}"
-
-                    if not res_json or "candidates" not in res_json:
-                        raise Exception(f"Gagal menghubungi server Gemini: {last_err_msg}")
-
+                    res_json = response.json()
                     raw_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                    
                     clean_text = raw_text.strip()
                     if "[" in clean_text and "]" in clean_text:
                         clean_text = clean_text[clean_text.find("["):clean_text.rfind("]")+1]
