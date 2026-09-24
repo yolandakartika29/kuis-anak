@@ -86,6 +86,7 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
+                    # Konfigurasi SDK resmi
                     genai.configure(api_key=api_key.strip())
 
                     catatan_tambahan = ""
@@ -144,21 +145,12 @@ if uploaded_file is not None:
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
                         contents_payload = [full_prompt]
 
-                    # Menggunakan model Generative AI terkini
-                    response = None
-                    last_error = ""
-
-                    for m_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp']:
-                        try:
-                            model = genai.GenerativeModel(m_name)
-                            response = model.generate_content(contents_payload)
-                            if response and response.text:
-                                break
-                        except Exception as err:
-                            last_error = str(err)
+                    # Menggunakan model standar paling stabil untuk AI Studio
+                    model = genai.GenerativeModel('gemini-1.5-flash')
+                    response = model.generate_content(contents_payload)
 
                     if not response or not response.text:
-                        raise Exception(f"Gagal memproses dengan model Gemini: {last_error}")
+                        raise Exception("Respon dari Gemini kosong.")
 
                     raw_text = response.text.strip()
                     clean_text = raw_text
@@ -247,7 +239,7 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
         elif nilai_akhir >= 70:
             st.info("🥈 BAGUS SEKALI! Kamu anak yang pintar dan rajin! 👏")
         else:
-            st.warning("🥉 TETAP SEMANGAT! Yuk latihan lagi supaya makin jago! 💪")
+            st.warning("🥉 TETAP SEMANGAT! Yuk latihan lagi supaya makin jago!")
 
         if st.button("🔄 Main Lagi dari Awal"):
             st.session_state.current_q = 0
