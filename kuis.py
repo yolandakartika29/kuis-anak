@@ -1,6 +1,5 @@
 import streamlit as st
 from google import genai
-from google.genai import types
 from PIL import Image
 import json
 import tempfile
@@ -103,11 +102,8 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    # Inisialisasi client GenAI dengan opsi API v1
-                    client = genai.Client(
-                        api_key=api_key,
-                        http_options=types.HttpOptions(api_version="v1")
-                    )
+                    # Inisialisasi client Google GenAI
+                    client = genai.Client(api_key=api_key)
 
                     catatan_tambahan = ""
                     if user_instruction.strip():
@@ -165,13 +161,14 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Menguji variasi nama ID model yang didukung oleh API v1
+                    # Urutan model utama yang terverifikasi aktif pada API Gemini
                     models_to_try = [
                         "gemini-2.5-flash",
-                        "gemini-1.5-flash",
-                        "models/gemini-2.5-flash",
-                        "models/gemini-1.5-flash"
+                        "gemini-2.0-flash",
+                        "gemini-1.5-flash-latest",
+                        "gemini-1.5-pro"
                     ]
+                    
                     response = None
                     last_exception = None
 
@@ -185,7 +182,6 @@ if uploaded_file is not None:
                                 break
                         except Exception as err:
                             last_exception = err
-                            time.sleep(1)
                             continue
 
                     if response is None or not response.text:
