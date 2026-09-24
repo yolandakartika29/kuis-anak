@@ -1,5 +1,6 @@
 import streamlit as st
 from google import genai
+from google.genai import types
 from PIL import Image
 import json
 import tempfile
@@ -81,7 +82,7 @@ elif input_option == "🎥 Video / Audio Pembelajaran":
 # Fitur Catatan / Instruksi Tambahan Pilihan Pengguna
 user_instruction = st.text_input(
     "✏️ Instruksi Tambahan / Topik Khusus (Opsional):", 
-    placeholder="Contoh: Fokus Pancasila Sila ke-1 sampai ke-5 atau Bab Tumbuhan IPAS"
+    placeholder="Contoh: Fokus Penjumlahan atau Bab Tumbuhan IPAS"
 )
 
 if uploaded_file is not None:
@@ -102,7 +103,11 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    client = genai.Client(api_key=api_key)
+                    # Inisialisasi client GenAI dengan opsi API v1
+                    client = genai.Client(
+                        api_key=api_key,
+                        http_options=types.HttpOptions(api_version="v1")
+                    )
 
                     catatan_tambahan = ""
                     if user_instruction.strip():
@@ -160,8 +165,13 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Menggunakan nama model standar resmi dari Google Gemini
-                    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
+                    # Menguji variasi nama ID model yang didukung oleh API v1
+                    models_to_try = [
+                        "gemini-2.5-flash",
+                        "gemini-1.5-flash",
+                        "models/gemini-2.5-flash",
+                        "models/gemini-1.5-flash"
+                    ]
                     response = None
                     last_exception = None
 
