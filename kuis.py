@@ -144,12 +144,11 @@ if uploaded_file is not None:
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
                         contents_payload = [full_prompt]
 
-                    # Urutan pencarian model alternatif jika satu model tidak aktif di akun Anda
-                    models_to_try = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro']
+                    # Menggunakan model Generative AI terkini
                     response = None
                     last_error = ""
 
-                    for m_name in models_to_try:
+                    for m_name in ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp']:
                         try:
                             model = genai.GenerativeModel(m_name)
                             response = model.generate_content(contents_payload)
