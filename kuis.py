@@ -1,9 +1,10 @@
 import streamlit as st
-import google.generativeai as genai
-from PIL import Image
 import json
-import os
+import base64
+import requests
 import urllib.parse
+from PIL import Image
+import io
 from pypdf import PdfReader
 
 st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
@@ -87,9 +88,6 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    # Konfigurasi Google Generative AI
-                    genai.configure(api_key=api_key.strip())
-
                     catatan_tambahan = ""
                     if user_instruction.strip():
                         catatan_tambahan = f"\nINSTRUKSI KHUSUS PENGGUNA: {user_instruction.strip()}"
@@ -129,9 +127,25 @@ if uploaded_file is not None:
                     ]
                     """
 
+                    # Menyiapkan payload untuk REST API Google Gemini
+                    parts = []
+
                     if file_type in ["image", "barcode"]:
-                        image_input = Image.open(uploaded_file)
-                        contents_payload = [image_input, prompt_base]
+                        img = Image.open(uploaded_file)
+                        if img.mode != 'RGB':
+                            img = img.convert('RGB')
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="JPEG")
+                        img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                        
+                        parts.append({
+                            "inline_data": {
+                                "mime_type": "image/jpeg",
+                                "data": img_str
+                            }
+                        })
+                        parts.append({"text": prompt_base})
+
                     elif file_type == "pdf":
                         pdf_reader = PdfReader(uploaded_file)
                         pdf_text = ""
@@ -141,32 +155,46 @@ if uploaded_file is not None:
                                 pdf_text += text + "\n"
                         
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
-                        contents_payload = [full_prompt]
+                        parts.append({"text": full_prompt})
 
-                    # Menggunakan model Gemini terbaru dengan SDK legacy yang kompatibel dengan AQ key
-                    candidate_models = [
+                    clean_key = api_key.strip()
+                    
+                    # Coba beberapa endpoint model
+                    models_to_try = [
                         "gemini-1.5-flash",
-                        "gemini-1.5-pro",
-                        "gemini-1.0-pro"
+                        "gemini-2.0-flash",
+                        "gemini-1.5-pro"
                     ]
 
-                    response = None
-                    last_error = None
+                    res_json = None
+                    last_err_msg = ""
 
-                    for mod_name in candidate_models:
-                        try:
-                            model = genai.GenerativeModel(mod_name)
-                            response = model.generate_content(contents_payload)
-                            if response and response.text:
-                                break
-                        except Exception as e_mod:
-                            last_error = e_mod
-                            continue
+                    for model_name in models_to_try:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={clean_key}"
+                        
+                        # Headers fleksibel untuk mendukung baik AQ key maupun AIzaSy key
+                        headers = {"Content-Type": "application/json"}
+                        if clean_key.startswith("AQ"):
+                            headers["Authorization"] = f"Bearer {clean_key}"
 
-                    if response is None or not response.text:
-                        raise last_error if last_error else Exception("Koneksi ke server AI gagal.")
+                        payload = {
+                            "contents": [{
+                                "parts": parts
+                            }]
+                        }
 
-                    clean_text = response.text.strip()
+                        response = requests.post(url, headers=headers, json=payload)
+                        if response.status_code == 200:
+                            res_json = response.json()
+                            break
+                        else:
+                            last_err_msg = f"HTTP {response.status_code}: {response.text}"
+
+                    if not res_json or "candidates" not in res_json:
+                        raise Exception(f"Gagal menghubungi server Gemini: {last_err_msg}")
+
+                    raw_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
+                    clean_text = raw_text.strip()
                     if "[" in clean_text and "]" in clean_text:
                         clean_text = clean_text[clean_text.find("["):clean_text.rfind("]")+1]
 
