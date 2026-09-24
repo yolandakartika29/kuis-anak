@@ -6,7 +6,7 @@ import tempfile
 import os
 import time
 
-st.set_page_config(page_title="Ayo Zee selesaikan tugasnya, kamu anak pintar", page_icon="🎈", layout="centered")
+st.set_page_config(page_title="Ayo Zee selesaikan soalnya, kamu kan pintar!", page_icon="🎈", layout="centered")
 
 # Custom Styling untuk tampilan game interaktif anak
 st.markdown("""
@@ -29,14 +29,6 @@ st.markdown("""
         border-left: 8px solid #4ecdc4;
         box-shadow: 0px 4px 10px rgba(0,0,0,0.05);
         margin-bottom: 15px;
-    }
-    .image-box {
-        background-color: #fff9e6;
-        border: 2px dashed #f1c40f;
-        padding: 15px;
-        border-radius: 12px;
-        margin-bottom: 15px;
-        color: #2c3e50;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -92,7 +84,6 @@ user_instruction = st.text_input(
 )
 
 if uploaded_file is not None:
-    # Tampilkan pratinjau sesuai tipe file
     if file_type in ["image", "barcode"]:
         image = Image.open(uploaded_file)
         st.image(image, caption="Gambar / Barcode Materi", use_container_width=True)
@@ -133,18 +124,18 @@ if uploaded_file is not None:
                     Ketentuan Utama & Kurikulum Merdeka:
                     1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD (Pancasila, Bahasa Indonesia, Matematika, IPAS, atau Seni).
                     2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
-                    3. Setiap soal HARUS menyertakan "deskripsi_gambar" nyata yang spesifik dan detail untuk menggambarkan situasi visual pada soal (Misal: "Gambar Andi sedang membantu Siti yang terjatuh dari sepeda di depan kelas", atau "Gambar 3 buah apel merah di atas piring biru").
+                    3. Setiap soal HARUS menyertakan "prompt_gambar_en" berupa deskripsi visual singkat dalam Bahasa Inggris yang jelas untuk dijadikan masukan pembuatan gambar AI (Misal: "A colorful cartoon illustration of two yellow cards, the first card has a large plus sign and the second has an equals sign, vector art for kids").
                     4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
                     5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
                     Output HARUS berupa JSON murni berbentuk Array Object tanpa format markdown:
                     [
                       {{
-                        "soal": "Perhatikan situasi pada gambar! Tindakan yang dilakukan anak tersebut merupakan pengamalan Pancasila sila ke-...?",
-                        "deskripsi_gambar": "Gambar seorang anak bernama Budi sedang menuntun temannya yang terjatuh dari sepeda di halaman sekolah.",
-                        "pilihan": ["Pilihan A", "Pilihan B", "Pilihan C", "Pilihan D"],
-                        "jawaban_benar": "Pilihan B",
-                        "pembahasan": "Pesan edukatif yang membangun dan ramah untuk anak!"
+                        "soal": "Perhatikan gambar berikut! Simbol manakah yang digunakan untuk penjumlahan?",
+                        "prompt_gambar_en": "Two yellow cards, one with a large plus symbol and one with an equals symbol, cute cartoon style for children",
+                        "pilihan": ["Pilihan A (+)", "Pilihan B (-)", "Pilihan C (=)", "Pilihan D (x)"],
+                        "jawaban_benar": "Pilihan A (+)",
+                        "pembahasan": "Simbol tambah (+) digunakan untuk menjumlahkan kelompok benda!"
                       }}
                     ]
                     """
@@ -189,7 +180,6 @@ if uploaded_file is not None:
                     if response is None or not response.text:
                         raise last_exception if last_exception else Exception("Gagal mendapat respon dari model AI.")
 
-                    # Hapus file sementara
                     if 'tmp_path' in locals() and os.path.exists(tmp_path):
                         os.remove(tmp_path)
 
@@ -199,7 +189,6 @@ if uploaded_file is not None:
 
                     soal_list = json.loads(clean_text)
                     
-                    # Reset game state
                     st.session_state.soal_ai = soal_list
                     st.session_state.current_q = 0
                     st.session_state.score = 0
@@ -224,14 +213,14 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
 
         item = soal_data[idx]
 
-        # Tampilan Deskripsi Visual Gambar Situasi
-        if "deskripsi_gambar" in item and item["deskripsi_gambar"]:
-            st.markdown(f"""
-            <div class="image-box">
-                <b>🖼️ PERHATIKAN GAMBAR / ILUSTRASI SEPERTI BERIKUT:</b><br>
-                <i>"{item['deskripsi_gambar']}"</i>
-            </div>
-            """, unsafe_allow_html=True)
+        # Pembuatan dan Penampilan Gambar Visual Otomatis via AI
+        if "prompt_gambar_en" in item and item["prompt_gambar_en"]:
+            # Menggunakan Gambar Unsplash Edukasi atau Ilustrasi Berdasar Kata Kunci Soal
+            keywords = item["prompt_gambar_en"].replace(" ", ",")
+            image_url = f"https://source.unsplash.com/600x400/?{keywords}"
+            
+            # Tampilkan Gambar Ilustrasi Visual Nyata
+            st.image(image_url, caption="🖼️ Perhatikan Gambar di Atas!", use_container_width=True)
 
         st.markdown(f"""
         <div class="question-card">
