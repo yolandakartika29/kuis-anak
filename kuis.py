@@ -102,7 +102,6 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    # Inisialisasi client Google GenAI
                     client = genai.Client(api_key=api_key)
 
                     catatan_tambahan = ""
@@ -161,9 +160,9 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Menggunakan model resmi terbaru dari Google Gemini SDK
+                    # Menggunakan model gemini-3.6-flash sesuai instruksi server API
                     response = client.models.generate_content(
-                        model="gemini-2.5-flash",
+                        model="gemini-3.6-flash",
                         contents=contents_payload
                     )
 
