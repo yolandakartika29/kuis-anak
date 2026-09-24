@@ -1,6 +1,8 @@
 import streamlit as st
-import google.generativeai as genai
 import json
+import requests
+import base64
+import io
 import urllib.parse
 from PIL import Image
 from pypdf import PdfReader
@@ -86,9 +88,6 @@ if uploaded_file is not None:
         else:
             with st.spinner("AI sedang menganalisis materi & menyelaraskan dengan Kurikulum Merdeka... ⏳"):
                 try:
-                    # Konfigurasi SDK resmi
-                    genai.configure(api_key=api_key.strip())
-
                     catatan_tambahan = ""
                     if user_instruction.strip():
                         catatan_tambahan = f"\nINSTRUKSI KHUSUS PENGGUNA: {user_instruction.strip()}"
@@ -119,20 +118,30 @@ if uploaded_file is not None:
                     Output HARUS berupa JSON murni berbentuk Array Object tanpa format markdown:
                     [
                       {{
-                        "soal": "Perhatikan gambar berikut! Simbol apakah yang kita pakai untuk menunjukkan hasil akhir dari sebuah penjumlahan?",
-                        "prompt_gambar_en": "a bright yellow equals symbol sign, 3d cute style, centered",
-                        "pilihan": ["Pilihan A (+)", "Pilihan B (-)", "Pilihan C (=)", "Pilihan D (x)"],
-                        "jawaban_benar": "Pilihan C (=)",
-                        "pembahasan": "Simbol sama dengan (=) digunakan untuk menunjukkan hasil akhir dari penjumlahan!"
+                        "soal": "Perhatikan soal penjumlahan berikut! Berapakah hasil dari 83 + 6?",
+                        "prompt_gambar_en": "addition math problem 83 plus 6, colorful cartoon style for elementary school",
+                        "pilihan": ["89", "88", "90", "87"],
+                        "jawaban_benar": "89",
+                        "pembahasan": "83 + 6 = 89!"
                       }}
                     ]
                     """
 
-                    contents_payload = []
+                    contents_parts = []
 
                     if file_type in ["image", "barcode"]:
                         img = Image.open(uploaded_file)
-                        contents_payload = [img, prompt_base]
+                        buffered = io.BytesIO()
+                        img.save(buffered, format="JPEG")
+                        img_b64 = base64.b64encode(buffered.getvalue()).decode("utf-8")
+                        
+                        contents_parts.append({
+                            "inline_data": {
+                                "mime_type": "image/jpeg",
+                                "data": img_b64
+                            }
+                        })
+                        contents_parts.append({"text": prompt_base})
 
                     elif file_type == "pdf":
                         pdf_reader = PdfReader(uploaded_file)
@@ -143,16 +152,25 @@ if uploaded_file is not None:
                                 pdf_text += text + "\n"
                         
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
-                        contents_payload = [full_prompt]
+                        contents_parts.append({"text": full_prompt})
 
-                    # Menggunakan model standar paling stabil untuk AI Studio
-                    model = genai.GenerativeModel('gemini-1.5-flash')
-                    response = model.generate_content(contents_payload)
+                    # Panggilan API Direct REST (Menghindari kendala versi SDK)
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={api_key.strip()}"
+                    headers = {'Content-Type': 'application/json'}
+                    payload = {
+                        "contents": [{
+                            "parts": contents_parts
+                        }]
+                    }
 
-                    if not response or not response.text:
-                        raise Exception("Respon dari Gemini kosong.")
+                    res = requests.post(url, headers=headers, json=payload)
+                    res_json = res.json()
 
-                    raw_text = response.text.strip()
+                    if res.status_code != 200:
+                        raise Exception(f"API Error: {res_json.get('error', {}).get('message', res.text)}")
+
+                    raw_text = res_json['candidates'][0]['content']['parts'][0]['text'].strip()
+                    
                     clean_text = raw_text
                     if "[" in clean_text and "]" in clean_text:
                         clean_text = clean_text[clean_text.find("["):clean_text.rfind("]")+1]
