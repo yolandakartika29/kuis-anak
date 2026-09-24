@@ -9,7 +9,6 @@ import urllib.parse
 
 st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
 
-# Custom Styling untuk tampilan game interaktif anak
 st.markdown("""
     <style>
     .main { background-color: #f0f8ff; }
@@ -36,10 +35,8 @@ st.markdown("""
 
 st.title("🎈 Petualangan Kuis Kurikulum Merdeka 🎈")
 
-# Ambil API Key otomatis dari Streamlit Secrets
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
-# Sidebar Pengaturan
 with st.sidebar:
     st.header("⚙️ Pengaturan AI")
     if not api_key:
@@ -47,7 +44,6 @@ with st.sidebar:
     else:
         st.success("API Key Terhubung Otomatis! 🔑")
 
-# Inisialisasi State Aplikasi
 if "current_q" not in st.session_state:
     st.session_state.current_q = 0
 if "score" not in st.session_state:
@@ -55,7 +51,6 @@ if "score" not in st.session_state:
 if "answered" not in st.session_state:
     st.session_state.answered = False
 
-# Pilih Tipe Sumber Materi
 input_option = st.radio(
     "📚 Pilih sumber materi belajar:",
     ["📸 Foto Gambar Modul", "📷 Scan Barcode / QR Code", "📄 File PDF Modul", "🎥 Video / Audio Pembelajaran"],
@@ -78,7 +73,6 @@ elif input_option == "🎥 Video / Audio Pembelajaran":
     uploaded_file = st.file_uploader("Unggah file video atau audio pembelajaran:", type=["mp4", "mov", "avi", "m4v", "mp3", "wav"])
     file_type = "media"
 
-# Fitur Catatan / Instruksi Tambahan Pilihan Pengguna
 user_instruction = st.text_input(
     "✏️ Instruksi Tambahan / Topik Khusus (Opsional):", 
     placeholder="Contoh: Fokus Penjumlahan atau Bab Tumbuhan IPAS"
@@ -125,7 +119,7 @@ if uploaded_file is not None:
                     Ketentuan Utama & Kurikulum Merdeka:
                     1. Adaptasi Capaian Pembelajaran (CP) Kurikulum Merdeka untuk SD (Pancasila, Bahasa Indonesia, Matematika, IPAS, atau Seni).
                     2. Buatlah soal berorientasi pada visual & kehidupan sehari-hari anak (kontekstual).
-                    3. Setiap soal HARUS menyertakan "prompt_gambar_en" berupa deskripsi visual singkat dalam Bahasa Inggris yang jelas untuk dijadikan masukan pembuatan gambar AI (Misal: "A cute 3D cartoon illustration of two yellow flashcards, first card with a large plus sign and second card with an equals sign, kids educational style").
+                    3. Setiap soal HARUS menyertakan "prompt_gambar_en" berupa deskripsi visual singkat dalam Bahasa Inggris yang jelas untuk dijadikan masukan pembuatan gambar AI.
                     4. Gunakan bahasa anak yang ramah, jelas, ceria, dan mudah dipahami usia SD.
                     5. Setiap soal wajib memiliki 4 pilihan jawaban (A, B, C, D).
 
@@ -141,7 +135,6 @@ if uploaded_file is not None:
                     ]
                     """
 
-                    # Penanganan Konten berdasarkan Tipe File
                     if file_type in ["image", "barcode"]:
                         image_input = Image.open(uploaded_file)
                         contents_payload = [image_input, prompt]
@@ -160,11 +153,31 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Menggunakan model gemini-3.6-flash sesuai instruksi server API
-                    response = client.models.generate_content(
-                        model="gemini-3.6-flash",
-                        contents=contents_payload
-                    )
+                    # Urutan model untuk mencoba jika satu model habis kuotanya
+                    candidate_models = [
+                        "gemini-2.0-flash-exp",
+                        "gemini-2.0-flash",
+                        "gemini-1.5-flash-8b",
+                        "gemini-3.6-flash"
+                    ]
+
+                    response = None
+                    last_error = None
+
+                    for mod in candidate_models:
+                        try:
+                            response = client.models.generate_content(
+                                model=mod,
+                                contents=contents_payload
+                            )
+                            if response and response.text:
+                                break
+                        except Exception as e_mod:
+                            last_error = e_mod
+                            continue
+
+                    if response is None or not response.text:
+                        raise last_error if last_error else Exception("Kuota harian seluruh model habis.")
 
                     if 'tmp_path' in locals() and os.path.exists(tmp_path):
                         os.remove(tmp_path)
@@ -182,9 +195,8 @@ if uploaded_file is not None:
                     st.success("Hore! Soal kuis Kurikulum Merdeka siap dimainkan! 🎉")
 
                 except Exception as e:
-                    st.error(f"Gagal membuat soal: {e}. Silakan coba klik tombol sekali lagi!")
+                    st.error(f"Gagal membuat soal: {e}. Jika kuota gratis akun habis, buat API Key baru di Google AI Studio!")
 
-# ==================== TAMPILAN GAME PER NOMOR ====================
 if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
     soal_data = st.session_state.soal_ai
     idx = st.session_state.current_q
@@ -199,7 +211,6 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
 
         item = soal_data[idx]
 
-        # Generator Gambar AI Realistis Edukasi Anak
         if "prompt_gambar_en" in item and item["prompt_gambar_en"]:
             prompt_encoded = urllib.parse.quote(f"{item['prompt_gambar_en']}, 3d cartoon style, vibrant colors, kids educational illustration, high resolution")
             image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=600&height=400&nologo=true"
@@ -238,7 +249,6 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
                 st.session_state.answered = False
                 st.rerun()
 
-    # ==================== HASIL SKOR ====================
     else:
         st.balloons()
         st.snow()
