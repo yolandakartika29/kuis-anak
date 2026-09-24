@@ -144,14 +144,14 @@ if uploaded_file is not None:
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
                         contents_payload = [full_prompt]
 
-                    # DAFTAR MODEL YANG DIPERBARUI (Menghapus model eksperimental -exp)
+                    # PERBAIKAN: Menggunakan model gemini-3.6-flash sesuai petunjuk error
                     response = None
                     last_err = ""
                     
                     models_to_try = [
+                        'gemini-3.6-flash',
                         'gemini-1.5-flash',
-                        'gemini-1.5-pro',
-                        'gemini-2.0-flash'
+                        'gemini-1.5-pro'
                     ]
                     
                     for model_name in models_to_try:
