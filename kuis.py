@@ -4,8 +4,10 @@ import json
 from PIL import Image
 from pypdf import PdfReader
 
+# Konfigurasi Tampilan Halaman Streamlit
 st.set_page_config(page_title="Petualangan Kuis Kurikulum Merdeka", page_icon="🎈", layout="centered")
 
+# Styling CSS Sederhana
 st.markdown("""
     <style>
     .main { background-color: #f0f8ff; }
@@ -32,6 +34,7 @@ st.markdown("""
 
 st.title("🎈 Petualangan Kuis Kurikulum Merdeka 🎈")
 
+# Mengambil API Key dari Streamlit Secrets atau Sidebar Input
 api_key = st.secrets.get("GEMINI_API_KEY", "")
 
 with st.sidebar:
@@ -41,6 +44,7 @@ with st.sidebar:
     else:
         st.success("API Key Terhubung Otomatis! 🔑")
 
+# Inisialisasi Session State
 if "current_q" not in st.session_state:
     st.session_state.current_q = 0
 if "score" not in st.session_state:
@@ -48,6 +52,7 @@ if "score" not in st.session_state:
 if "answered" not in st.session_state:
     st.session_state.answered = False
 
+# Pilihan Sumber Belajar
 input_option = st.radio(
     "📚 Pilih sumber materi belajar:",
     ["📸 Foto Gambar Modul", "📷 Scan Barcode / QR Code", "📄 File PDF Modul"],
@@ -72,6 +77,7 @@ user_instruction = st.text_input(
     placeholder="Contoh: Fokus Penjumlahan atau Bab Tumbuhan IPAS"
 )
 
+# Proses Pembuatan Soal
 if uploaded_file is not None:
     if file_type in ["image", "barcode"]:
         image = Image.open(uploaded_file)
@@ -138,10 +144,17 @@ if uploaded_file is not None:
                         full_prompt = f"BERIKUT ADALAH TEKS MATERI DARI DOKUMEN PDF MODUL:\n\n{pdf_text[:15000]}\n\n{prompt_base}"
                         contents_payload = [full_prompt]
 
-                    # Menguji daftar nama model resmi yang aktif
+                    # PERBAIKAN PEMANGGILAN MODEL GEMINI
                     response = None
                     last_err = ""
-                    for model_name in ['gemini-1.5-flash-latest', 'gemini-1.5-pro-latest', 'gemini-pro-vision', 'gemini-pro']:
+                    
+                    models_to_try = [
+                        'gemini-1.5-flash',
+                        'gemini-1.5-pro',
+                        'gemini-2.0-flash-exp'
+                    ]
+                    
+                    for model_name in models_to_try:
                         try:
                             model = genai.GenerativeModel(model_name)
                             response = model.generate_content(contents_payload)
@@ -169,6 +182,7 @@ if uploaded_file is not None:
                 except Exception as e:
                     st.error(f"Gagal membuat soal: {e}")
 
+# Tampilan Antarmuka Kuis
 if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
     soal_data = st.session_state.soal_ai
     idx = st.session_state.current_q
