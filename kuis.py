@@ -160,8 +160,8 @@ if uploaded_file is not None:
 
                         contents_payload = [uploaded_media, prompt]
 
-                    # Urutan model dimulai dari model dengan kuota gratis harian paling besar
-                    models_to_try = ["gemini-1.5-flash", "gemini-2.0-flash", "gemini-2.5-flash"]
+                    # Menggunakan nama model standar resmi dari Google Gemini
+                    models_to_try = ["gemini-2.5-flash", "gemini-1.5-flash"]
                     response = None
                     last_exception = None
 
@@ -214,7 +214,7 @@ if "soal_ai" in st.session_state and len(st.session_state.soal_ai) > 0:
 
         item = soal_data[idx]
 
-        # Generator Gambar AI Realistis Edukasi Anak (Pollinations AI)
+        # Generator Gambar AI Realistis Edukasi Anak
         if "prompt_gambar_en" in item and item["prompt_gambar_en"]:
             prompt_encoded = urllib.parse.quote(f"{item['prompt_gambar_en']}, 3d cartoon style, vibrant colors, kids educational illustration, high resolution")
             image_url = f"https://image.pollinations.ai/prompt/{prompt_encoded}?width=600&height=400&nologo=true"
