@@ -158,31 +158,30 @@ if uploaded_file is not None:
 
                     clean_key = api_key.strip()
                     
-                    # Menggunakan endpoint v1beta resmi Gemini dengan query key murni
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={clean_key}"
-                    
-                    # KUNCI UTAMA: Hanya sertakan Content-Type, JANGAN sertakan Authorization header
-                    headers = {
-                        "Content-Type": "application/json"
-                    }
+                    models_to_try = [
+                        "gemini-2.0-flash",
+                        "gemini-1.5-flash-latest",
+                        "gemini-1.5-flash"
+                    ]
 
-                    payload = {
-                        "contents": [{
-                            "parts": parts
-                        }]
-                    }
+                    res_json = None
+                    last_err = ""
 
-                    response = requests.post(url, headers=headers, json=payload)
-                    
-                    if response.status_code != 200:
-                        # Fallback ke model gemini-1.5-pro jika flash gagal
-                        url_alt = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={clean_key}"
-                        response = requests.post(url_alt, headers=headers, json=payload)
+                    headers = {"Content-Type": "application/json"}
+                    payload = {"contents": [{"parts": parts}]}
 
-                    if response.status_code != 200:
-                        raise Exception(f"HTTP {response.status_code}: {response.text}")
+                    for m_name in models_to_try:
+                        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m_name}:generateContent?key={clean_key}"
+                        response = requests.post(url, headers=headers, json=payload)
+                        if response.status_code == 200:
+                            res_json = response.json()
+                            break
+                        else:
+                            last_err = f"HTTP {response.status_code}: {response.text}"
 
-                    res_json = response.json()
+                    if not res_json or "candidates" not in res_json:
+                        raise Exception(f"Gagal memproses materi: {last_err}")
+
                     raw_text = res_json["candidates"][0]["content"]["parts"][0]["text"]
                     
                     clean_text = raw_text.strip()
